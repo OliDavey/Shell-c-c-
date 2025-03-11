@@ -1,2 +1,2 @@
-# Shell-c-c-
+# Shell (c/c++)
 Building a shell using c or c++.
