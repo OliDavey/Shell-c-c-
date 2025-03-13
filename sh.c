@@ -119,9 +119,76 @@ struct cmd* backcmd(struct cmd *subcmd)
 };
 
 
+//helper funcs
+void panic(char *s){
+    fprintf(2, "%s\n", s); // prints error msg on the std error given that std error will be file descriptor num 2
+    exit(1); // system call exit, terminates program (1 is error, 0 is a success)
+}
+
+int fork1(void){
+    int pid; // process ID
+    pid = fork();
+    if (pid == -1){
+        panic("fork"); // terminates process if fork had any error
+    }
+    return pid;
+}
+
+// functions that do things and run cmds
+int fork1(void);
+void panic(char*);
+struct cmd *parsecmd(char*);
+
+void runcmd(struct cmd *cmd){ // dosnt return jsut finishes by terminating a process
+    int p[2];
+    struct backcmd *bcmd;
+    struct execcmd *ecmd;
+    struct listcmd *lcmd;
+    struct pipecmd *pcmd;
+    struct redircmd *rcmd;
+
+    if (cmd == 0){
+        exit(1);
+    }
+
+    switch (cmd -> type)
+    {
+    default:
+        panic("runcmd");
+
+    case EXEC:
+        ecmd = (struct execcmd*)cmd;
+        // checking to see there is at least one argument
+        if (ecmd->argv[0] == 0){ // argv[0] points to null terminated string of file name of program to execute
+            exit(1);
+        }
+        exec(ecmd->argv[0], ecmd->argv); // sys call exec(filename of program to be run, pointer to array)
+        fprintf(2, "exec %s failed\n", ecmd->argv[0]);
+        break;
+
+    case REDIR:
+        /* code */
+        break;
+
+    case PIPE:
+        /* code */
+        break;
+
+    case LIST:
+        /* code */
+        break;
+
+    case BACK:
+        /* code */
+        break;
+    }
+    exit(0);
+}
+
+
 int main(void){
     static char buf[100]; // num of chars the buffer will allow (how big of a cmd we can pass)
-    int fd;
+    int fd; // file descriptor 
 
     while ((fd = open("console", O_RDWR)) >= 0) // open for reading and writing
     {
@@ -137,30 +204,17 @@ int main(void){
         if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') // checking for cd dir
         {
             buf[strlen(buf)-1] = 0; // buf[length of string -1] set to 0
-            if (chdir(buf+3) < 3){
+            if (chdir(buf+3) < 3){ // inokes chdir sys call and points to file name
                 fprintf(2, "Cannot cd %s\n", buf+3);
-                continue;
+                continue; // repeat while loop so it makes a permant change to the process
             }
         }
-        if (fork1() == 0){
-            runcmd(parsecmd(buf));
-            wait(0);
+        // if not cd cmd 
+        if (fork1() == 0){ // fork returns 0 for child process and PID for parent process
+            runcmd(parsecmd(buf)); // parent forks child and runs runcmd. runcmd terminates itself and dosnt return any value
         }
+        wait(0); // parent process immediatly begins waiting for child process to finish
     }
     exit(0);
 }
 
-//helper funcs
-void panic(char *s){
-    fprintf(2, "%s\n", s); // prints error msg on the std error given that std error will be file descriptor num 2
-    exit(1); // system call exit, terminates program (1 is error, 0 is a success)
-}
-
-int fork1(void){
-    int pid;
-    pid = fork();
-    if (pid == -1){
-        panic("fork"); // terminates process if fork had any error
-    }
-    return pid;
-}
