@@ -117,7 +117,22 @@ struct cmd* backcmd(struct cmd *subcmd)
 };
 
 
-int main(){
+int main(void){
     printf("hello world");
     return 0;
+}
+
+//helper funcs
+void panic(char *s){
+    fprintf(2, "%s\n", s); // prints error msg on the std error given that std error will be file descriptor num 2
+    exit(1); // system call exit, terminates program (1 is error, 0 is a success)
+}
+
+int fork1(void){
+    int pid;
+    pid = fork();
+    if (pid == -1){
+        panic("fork"); // terminates process if fork had any error
+    }
+    return pid;
 }
