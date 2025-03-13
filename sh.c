@@ -1,4 +1,6 @@
 #include "sys/types.h"
+#include <sys/types.h>
+#include <fcntl.h>
 #include <stdio.h>
 
 /*
@@ -118,8 +120,34 @@ struct cmd* backcmd(struct cmd *subcmd)
 
 
 int main(void){
-    printf("hello world");
-    return 0;
+    static char buf[100]; // num of chars the buffer will allow (how big of a cmd we can pass)
+    int fd;
+
+    while ((fd = open("console", O_RDWR)) >= 0) // open for reading and writing
+    {
+        if (fd >= 3){
+            close(fd);
+            break;
+        }
+    }
+
+    // read then run cmd
+    while (getcmd(buf, sizeof(buf)) >= 0)
+    {
+        if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') // checking for cd dir
+        {
+            buf[strlen(buf)-1] = 0; // buf[length of string -1] set to 0
+            if (chdir(buf+3) < 3){
+                fprintf(2, "Cannot cd %s\n", buf+3);
+                continue;
+            }
+        }
+        if (fork1() == 0){
+            runcmd(parsecmd(buf));
+            wait(0);
+        }
+    }
+    exit(0);
 }
 
 //helper funcs
