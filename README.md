@@ -10,24 +10,24 @@
     Parentheses for grouping e.g (pgm1 ; pgm2) | pgm3
     Built in cmd: cd pathname
 
-# System Calls:
+## System Calls:
     Process control: fork, exec, exit, wait
     I/O: open, close, read, write
     Pipes: pipe, dup
     change Dir: chdir
 
-# Parse cmd line input and build tree structure reperensentation on first pass
-# Walk the tree on a second pass
+## Parse cmd line input and build tree structure reperensentation on first pass
+## Walk the tree on a second pass
 
-# use parsecmd - recursive descent parser
-# runcmd - recursivley walks the cmd tree and executes each node in order (creats child processes as neccasary(fork))
+## use parsecmd - recursive descent parser
+## runcmd - recursivley walks the cmd tree and executes each node in order (creats child processes as neccasary(fork))
 
-# Tree:
+## Tree:
     Node attributes: type (e.g), left (pointer to val to left of node), right (pointer to val to right of node)
     types: EXEC(1), REDIR (2), PIPE(3), LIST(4), BACK(5). refer to type codes instead of names. Define them with #define TYPE val
     for & nodes: Type, cmd (pointer to whatever needs to be executed (an exec node))
 
-# Structs:
+## Structs:
     pipecmd
     listcmd
     backcmd
@@ -35,7 +35,7 @@
     redircmd
     for each struct exists a constructor function with the same name (passed in a few arguments then allocates node, fill in node fields, allocate node pointer)
 
-# Functions:
+## Functions:
     parsecmd (returns pointer to tree it builds)
         parseline
         parsepipe
