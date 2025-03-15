@@ -6,7 +6,6 @@
 
 
 
-
 /*
 shell program using c
 */
@@ -160,38 +159,6 @@ int getcmd(char *buf, int nbuf){
     return 0;
 }
 
-
-int main(void){
-    static char buf[100]; // num of chars the buffer will allow (how big of a cmd we can pass)
-    int fd; // file descriptor 
-
-    while ((fd = open("console", O_RDWR)) >= 0) // open for reading and writing
-    {
-        if (fd >= 3){
-            close(fd);
-            break;
-        }
-    }
-
-    // read then run cmd
-    while (getcmd(buf, sizeof(buf)) >= 0)
-    {
-        if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') // checking for cd dir
-        {
-            buf[strlen(buf)-1] = 0; // buf[length of string -1] set to 0
-            if (chdir(buf+3) < 3){ // inokes chdir sys call and points to file name
-                printf(2, "Cannot cd %s\n", buf+3);
-                continue; // repeat while loop so it makes a permant change to the process
-            }
-        }
-        // if not cd cmd 
-        if (fork1() == 0){ // fork returns 0 for child process and PID for parent process
-            runcmd(parsecmd(buf)); // parent forks child and runs runcmd. runcmd terminates itself and dosnt return any value
-        }
-        wait(0); // parent process immediatly begins waiting for child process to finish
-    }
-    exit(0);
-}
 
 //helper funcs
 void panic(char *s){
@@ -371,45 +338,38 @@ struct cmd* parsecmd(char *s){ // pass pointer to input buffer
     nulterminate(cmd);
     return cmd;
 }
-// example inputs:
-// pgm opt1 opt2 <file1 >file2
-// you can put the redirections anywhere such as:
-// <file1 pgm opt1 >file opt2, this creates the same tree
-struct cmd* parseexec(char **ps, char *es){
-    char *q, *eq;
-    int tok, argc;
-    struct execcmd *cmd;
-    struct cmd *ret;
 
-    if(peek(ps, es, "(")){
-        return parseblock(ps, es);
-    }
-    ret = execcmd(); // allocates node without filling it in
-    cmd = (struct execcmd*)ret; // pointer to exec node
+struct cmd* parseline(char **ps, char *es){
+    struct cmd *cmd;
 
-    argc = 0;
-    ret = parseredirs(ret, ps, es); // pass it the tree built so far (empty exec node)
-    // check to see if something thats not a punctuation char after the redir
-    while(!peek(ps, es, "|)&;")){ // can pass 0 or more filenames, if 0 then exec starts with null pointer
-        if ((tok=gettoken(ps, es, &q, &eq)) == 0){ // check to see if at the end of the string
-            break;
-        }
-        if (tok != 'a'){ // check we got a filename or option or not 0
-            panic("syntax");
-        }
-        cmd->argv[argc] = q; // fill in argv pointers, q points to pgm 
-        cmd->eargv[argc] = eq; // fill in eargv pointers eq points to end of pgm
-        argc++;
-        if (argc >= MAXARGS){ // check for buffer oveflow, no room for null at end of string
-            panic("too many args");
-        }
-        // passed pointer to some tree, we add a root then return pointer to the root
-        // we do the last redir first, then the next until we get to exec
-        ret = parseredirs(ret, ps, es); // loop till we see one of the while loop symbols
+    cmd = parsepipe(ps, es); // returns a tree saved in cmd
+    while (peek(ps, es, "&")) // check if next thing is &
+    {
+        gettoken(ps, es, 0, 0); // pick it up
+        //add new root node / background node to tree using the prevoius tree as the subtree
+        cmd = backcmd(cmd);
     }
-    cmd->argv[argc] = 0;
-    cmd->eargv[argc] = 0;
-    return ret;
+
+    if(peek(ps, es, ";")){ // peek at next token see if its ;
+        gettoken(ps, es, 0, 0);// scan it
+        // parseline returns subtree, we make a list node with pgm1 or whatever on left and subtree on right
+        cmd = listcmd(cmd, parseline(ps, es)); 
+    }
+    return cmd; //return the node
+}
+
+// *es points to end of string / null byte
+// **ps, tells where in the buffer to start the scan 
+struct cmd* parsepipe(char **ps, char *es){ //pointers tell us where we should look at the input buffer
+    struct cmd *cmd;
+
+    cmd = parseexec(ps, es); // builds a tree, we save a pointer to it in cmd
+    if (peek(ps, es, "|")){ // if thing is bar scan it
+        gettoken(ps, es, 0, 0); 
+        // whatever exec returns is left subtree, whatever the recursive call returns is used in right subtree 
+        cmd = pipecmd(cmd, parsepipe(ps, es)); // new pipe node made
+    }
+    return cmd; // return the pipe node
 }
 
 // gonna add a root and replace it
@@ -458,37 +418,45 @@ struct cmd* parseblock(char **ps, char *es){
     return cmd; // return pointer to resulting tree
 }
 
-struct cmd* parseline(char **ps, char *es){
-    struct cmd *cmd;
+// example inputs:
+// pgm opt1 opt2 <file1 >file2
+// you can put the redirections anywhere such as:
+// <file1 pgm opt1 >file opt2, this creates the same tree
+struct cmd* parseexec(char **ps, char *es){
+    char *q, *eq;
+    int tok, argc;
+    struct execcmd *cmd;
+    struct cmd *ret;
 
-    cmd = parsepipe(ps, es); // returns a tree saved in cmd
-    while (peek(ps, es, "&")) // check if next thing is &
-    {
-        gettoken(ps, es, 0, 0); // pick it up
-        //add new root node / background node to tree using the prevoius tree as the subtree
-        cmd = backcmd(cmd);
+    if(peek(ps, es, "(")){
+        return parseblock(ps, es);
     }
+    ret = execcmd(); // allocates node without filling it in
+    cmd = (struct execcmd*)ret; // pointer to exec node
 
-    if(peek(ps, es, ";")){ // peek at next token see if its ;
-        gettoken(ps, es, 0, 0);// scan it
-        // parseline returns subtree, we make a list node with pgm1 or whatever on left and subtree on right
-        cmd = listcmd(cmd, parseline(ps, es)); 
+    argc = 0;
+    ret = parseredirs(ret, ps, es); // pass it the tree built so far (empty exec node)
+    // check to see if something thats not a punctuation char after the redir
+    while(!peek(ps, es, "|)&;")){ // can pass 0 or more filenames, if 0 then exec starts with null pointer
+        if ((tok=gettoken(ps, es, &q, &eq)) == 0){ // check to see if at the end of the string
+            break;
+        }
+        if (tok != 'a'){ // check we got a filename or option or not 0
+            panic("syntax");
+        }
+        cmd->argv[argc] = q; // fill in argv pointers, q points to pgm 
+        cmd->eargv[argc] = eq; // fill in eargv pointers eq points to end of pgm
+        argc++;
+        if (argc >= MAXARGS){ // check for buffer oveflow, no room for null at end of string
+            panic("too many args");
+        }
+        // passed pointer to some tree, we add a root then return pointer to the root
+        // we do the last redir first, then the next until we get to exec
+        ret = parseredirs(ret, ps, es); // loop till we see one of the while loop symbols
     }
-    return cmd; //return the node
-}
-
-// *es points to end of string / null byte
-// **ps, tells where in the buffer to start the scan 
-struct cmd* parsepipe(char **ps, char *es){ //pointers tell us where we should look at the input buffer
-    struct cmd *cmd;
-
-    cmd = parseexec(ps, es); // builds a tree, we save a pointer to it in cmd
-    if (peek(ps, es, "|")){ // if thing is bar scan it
-        gettoken(ps, es, 0, 0); 
-        // whatever exec returns is left subtree, whatever the recursive call returns is used in right subtree 
-        cmd = pipecmd(cmd, parsepipe(ps, es)); // new pipe node made
-    }
-    return cmd; // return the pipe node
+    cmd->argv[argc] = 0;
+    cmd->eargv[argc] = 0;
+    return ret;
 }
 
 struct cmd* nulterminate(struct cmd *cmd) // recursively walks the tree
@@ -535,4 +503,36 @@ struct cmd* nulterminate(struct cmd *cmd) // recursively walks the tree
         break;
     }
     return cmd;
+}
+
+int main(void){
+    static char buf[100]; // num of chars the buffer will allow (how big of a cmd we can pass)
+    int fd; // file descriptor 
+
+    while ((fd = open("console", O_RDWR)) >= 0) // open for reading and writing
+    {
+        if (fd >= 3){
+            close(fd);
+            break;
+        }
+    }
+
+    // read then run cmd
+    while (getcmd(buf, sizeof(buf)) >= 0)
+    {
+        if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ') // checking for cd dir
+        {
+            buf[strlen(buf)-1] = 0; // buf[length of string -1] set to 0
+            if (chdir(buf+3) < 3){ // inokes chdir sys call and points to file name
+                printf(2, "Cannot cd %s\n", buf+3);
+                continue; // repeat while loop so it makes a permant change to the process
+            }
+        }
+        // if not cd cmd 
+        if (fork1() == 0){ // fork returns 0 for child process and PID for parent process
+            runcmd(parsecmd(buf)); // parent forks child and runs runcmd. runcmd terminates itself and dosnt return any value
+        }
+        wait(0); // parent process immediatly begins waiting for child process to finish
+    }
+    exit(0);
 }
