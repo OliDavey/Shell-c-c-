@@ -53,6 +53,20 @@
             panic (prints error msg and terminates process if error occurs (1 process is created for every cmdline thats entered) the shell itself keeps existing as a parent process)
             fork1 (wrapper func for the fork sys call, checks for any errors when fork sys call is envoked)
 
-    
+    Parsing functions:
+        parseblock, reads in left parenthese, recursivley call in func it passes, passess right parenthese, calls function to parse redirections (parseredirs): (Line) REDIR
+
+        parsepipe, calls parseexec, possibly parse a vertical bar |, then call parsepipe recursivly (calls itself): EXEC [| PIPE]
+
+        parseline, call parsepipe, then parse 0 or more & chars, then optionally parse a line if a ';' char exists then call parseline: PIPE {&} [; LINE]
+
+        parseridirs, a redirection is optionally '>', '<' or '>>' followed by a file name to be redirected to, there can be zero or more redirects: {either '>', '<' or '>>' filename}
+
+        parseexec, normally a sequence of tokens, the first being a program name followed by additional tokens/options (you need one or more tokens the first being the filename): REDIR {filename REDIR}+ ( BLOCK, use the peek function to see if left parenthese exists, if so call block
+
+        For parsepipe, we follow the right recursion rule / right associactivity. PIPE -> EXEC, then EXEC | PIPE. We build a right recursive tree. we end up with something like this: 
+        aaa | (bbb | (ccc | ddd))
+
+
 
 
