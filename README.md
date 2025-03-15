@@ -1,5 +1,6 @@
 # Shell (c/c++)
-    Building a shell using c or c++.
+    Building a shell using c or c++. Based on Xv6 MIT shell software
+    
 
 # Shell program written in C has the following features:
         Options e.g -r -i
