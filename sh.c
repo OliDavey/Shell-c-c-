@@ -140,6 +140,55 @@ int fork1(void);
 void panic(char*);
 struct cmd *parsecmd(char*);
 
+struct cmd* nulterminate(struct cmd *cmd) // recursively walks the tree
+{
+    int i;
+    struct backcmd *bcmd;
+    struct execcmd *ecmd;
+    struct listcmd *lcmd;
+    struct pipecmd *pcmd;
+    struct redircmd *rcmd;
+
+    if (cmd == 0){
+        return 0;
+    }
+
+    switch (cmd->type)
+    {
+    case EXEC:
+        ecmd = (struct execcmd*)cmd;
+        // go through argv array in order  and follow the pointer
+        for (i =0; ecmd->argv[i]; i++){
+            // write 0 at eargv
+            *ecmd->eargv[i] =0;
+        }
+        break;
+    case REDIR:
+        rcmd = (struct redircmd*)cmd;
+        nulterminate(rcmd->cmd);
+        *rcmd->efile = 0;
+        break;
+    case PIPE:
+        pcmd = (struct pipecmd*)cmd;
+        nulterminate(pcmd->left);
+        nulterminate(pcmd->right);
+        *rcmd->efile = 0;
+        break;
+    case LIST:
+        lcmd = (struct listcmd*)cmd;
+        nulterminate(lcmd->left);
+        nulterminate(lcmd->right);
+        break;
+    case BACK:
+        bcmd = (struct backcmd*)cmd;
+        nulterminate(bcmd->cmd);
+        break;
+    }
+    return cmd;
+
+}
+
+
 void runcmd(struct cmd *cmd){ // dosnt return jsut finishes by terminating a process
     int p[2];
     struct backcmd *bcmd;
