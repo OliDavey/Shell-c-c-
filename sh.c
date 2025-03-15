@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /*
 shell program using c
@@ -167,19 +168,55 @@ void runcmd(struct cmd *cmd){ // dosnt return jsut finishes by terminating a pro
         break;
 
     case REDIR:
-        /* code */
+        rcmd = (struct redircmd*)cmd;
+        close(rcmd->fd);
+        if (open(rcmd->file, rcmd->mode) < 0){
+            fprintf(2, "open %s failed\n", rcmd->file);
+            exit(1);
+        }
+        runcmd(rcmd->cmd);
         break;
 
     case PIPE:
-        /* code */
+        pcmd = (struct pipecmd*)cmd;
+        if (pipe(p) < 0){ // system call pipe
+            panic("pipe");
+        }
+        // redirect pgm1 output to pgm1 input
+        if (fork1() == 0){ // creates first child process
+            close(1); //close std out
+            dup(p[1]); // creates copy of fd
+            close(p[0]); // close fd #
+            close(p[1]); // close next fd
+            runcmd(pcmd->left);
+        }
+        if (fork1() == 0){ // creates second child process
+            close(0); // close std in
+            dup(p[0]); // creats copy of file descriptor fd
+            close(p[0]);
+            close(p[1]);
+            runcmd(pcmd->right);
+        }
+        close(p[0]); // close fd 1
+        close(p[1]); // close fd 2
+        wait(0); // wait for first child to terminate
+        wait(0); // waits for other child to terminate
         break;
 
     case LIST:
-        /* code */
+        lcmd = (struct listcmd*)cmd;
+        if (fork1() == 0){
+            runcmd(lcmd -> left);
+        }
+        wait(0);
+        runcmd(lcmd->right);
         break;
 
     case BACK:
-        /* code */
+        bcmd = (struct backcmd*)cmd;
+        if (fork1() == 0){
+            runcmd(bcmd->cmd);
+        }
         break;
     }
     exit(0);
