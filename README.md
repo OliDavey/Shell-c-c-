@@ -1,5 +1,5 @@
 # Shell (c/c++)
-    Building a shell using c or c++. Based on Xv6 MIT shell software
+    Building a shell using c or c++. Based on Xv6 MIT shell software lectures for practice and understanding
     
 
 # Shell program written in C has the following features:
